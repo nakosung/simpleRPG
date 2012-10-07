@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html ng-app>
+<head>
+    <title></title>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.0.2/angular.min.js"></script>
+    <style type="text/css">
+        .map {
+            background-image: url('images/tilea2.png');
+            width:32px;
+            height:32px;
+            padding:0;
+            margin:0;
+        }
+        table {
+            border-spacing:0;
+            border-collapse:collapse;
+        }
+    </style>
+</head>
+<body>
+    Express
+    <div ng-controller='ActionCtrl'>
+        <button ng-repeat='x in actions' ng-click='do(x)'>{{x}}</button>
+
+        <h3>last result</h3>
+        <p>{{result}}</p>
+
+        <table>
+            <tr ng-repeat="r in map">
+                <td ng-repeat="c in r" class="map" ng-style="style(c)">
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <script type="text/javascript" src="/socket.io/socket.io.js"></script>
+    <script type="text/javascript">
+        var socket = io.connect('/');
+
+        function ActionCtrl($scope) {
+            $scope.style = function(c) {
+                var x = (c % 32) * 32;
+                var y = Math.floor(c / 32) * 32;
+                return {
+                    "background-position" : x + "px " + y + "px"
+                }
+            }
+            socket.on('actions',function(r){
+                console.log('actions set',r)
+                $scope.actions = r;
+                $scope.$apply();
+            })
+
+            $scope.do = function(action){
+                console.log(action);
+                socket.emit(action,{
+
+                },function(r){
+                    $scope.result = r;
+                    $scope.$apply();
+                })
+            }
+
+            socket.on('map',function(data){
+                var n = data.n;
+                var map = data.map;
+                $scope.map = []
+                var i=0;
+                for (var y=0; y<n; ++y) {
+                    var row = [];
+                    for (var x=0; x<n; ++x) {
+                        row.push(map[i++]);
+                    }
+                    $scope.map.push(row);
+                }
+            })
+        }
+
+    </script>
+</body>
+</html>
