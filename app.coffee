@@ -43,7 +43,7 @@ class Actor
   destroy: ->
     @world.removeActor(this)
 
-  isRelavant: ->
+  isRelevant: ->
     false
 
   tick: ->
@@ -109,34 +109,31 @@ class World
     x = actor.x + dx
     y = actor.y + dy
     size = actor.size
-    if x < 0 or y < 0 or x + size > world.map.size or y + size > world.map.size
-      false
-    else
-      collides = (x1,x2,y1,y2) ->
-        not (x2 <= y1 or y2 <= x1)
+    collides = (x1,x2,y1,y2) ->
+      not (x2 <= y1 or y2 <= x1)
 
-      if @actorsInKdtree > 0
-        dist = size * 2
-        collided = false
-        @kdtree.nearest(actor,100,dist * dist).forEach (i) ->
-          v = i[0]
-          if v != actor and collides(x,x+size,v.x,v.x+size) and collides(y,y+size,v.y,v.y+size)
-            collided = true
-            return false
-        if collided
+    if @actorsInKdtree > 0
+      dist = size * 2
+      collided = false
+      @kdtree.nearest(actor,100,dist * dist).forEach (i) ->
+        v = i[0]
+        if v != actor and collides(x,x+size,v.x,v.x+size) and collides(y,y+size,v.y,v.y+size)
+          collided = true
           return false
+      if collided
+        return false
 
-      if actor.placed
-        @kdtree.remove(actor)
-      else
-        @actorsInKdtree++
+    if actor.placed
+      @kdtree.remove(actor)
+    else
+      @actorsInKdtree++
 
-      actor.placed = true
-      @kdtree.insert(actor)
+    actor.placed = true
+    @kdtree.insert(actor)
 
-      actor.x = x
-      actor.y = y
-      true
+    actor.x = x
+    actor.y = y
+    true
 
 class Map extends Actor
   init: (size) ->
@@ -153,7 +150,7 @@ class Map extends Actor
     version:@version
   name: ->
     "Map"
-  isRelavant: ->
+  isRelevant: ->
     true
   modify: (x,y,c) ->
     x = Math.floor(x)
@@ -192,6 +189,9 @@ class Pawn extends Actor
       dx++
 
   tick: ->
+    @check 'tick', (p) ->
+      return --p.data <= 0
+
     if not (world.move this, @dx, @dy)
       @move 'stop'
 
@@ -203,7 +203,7 @@ class Pawn extends Actor
   move: (dir,cb) ->
     if @dir != dir
       @dir = dir
-      @dreamsComeTrue dir
+      @check dir
       map =
         moveLeft:[-1,0]
         moveRight:[1,0]
@@ -222,22 +222,25 @@ class Pawn extends Actor
     @chat_ttl = 10
     @chat_msg = msg
 
-  when: (cond) ->
+  when: (cond,data) ->
     d = Q.defer()
-    @promises[cond] ?= []
-    @promises[cond].push(d)
+    @promises[cond] ?=
+      data:data
+      promises:[]
+    @promises[cond].promises.push(d)
     d.promise
 
-  dreamsComeTrue: (cond,data) ->
-    if @promises[cond]
-      for v,k in @promises[cond]
-        v.resolve(data)
+  check: (cond,fn) ->
+    p = @promises[cond]
+    if p and (fn == undefined or fn(p))
+      for v,k in p.promises
+        v.resolve()
       delete @promises[cond]
 
   name: ->
     "Pawn"
 
-  isRelavant: ->
+  isRelevant: ->
     true
 
   getSnapshot: ->
@@ -263,10 +266,11 @@ class Channel
       x[0]
     potentialRelavantActors.push(world.map)
     potentialRelavantActors.push(pawn)
+    potentialRelavantActors.push(controller)
 
     for v in potentialRelavantActors
       k = v.id
-      if v.isRelavant(controller)
+      if v.isRelevant(controller)
         x = @hash[k]
         if x == undefined
           x = @hash[k] =
@@ -309,6 +313,9 @@ class Channel
 class Controller extends Actor
   getPawnClass: ->
     Pawn
+
+  isRelevant: (controller) ->
+    controller == this
 
   init : () ->
     @tickFrequency = 20
@@ -365,6 +372,9 @@ class Controller extends Actor
   stop : (d,c) =>
     @move([0,0],c)
 
+  getSnapshot: ->
+    pawn: @pawn.id
+
 class PlayerController extends Controller
   init : (@socket) ->
     super
@@ -400,10 +410,10 @@ class AIController extends Controller
     right = =>
       @pawn.move 'moveRight'
       @pawn.chat '오른쪽'
-      @pawn.when('stop').then =>
+      @pawn.when('tick',10).then =>
         @pawn.move 'moveLeft'
         @pawn.chat '왼쪽'
-        @pawn.when('stop').then =>
+        @pawn.when('tick',10).then =>
           right()
 
     right()

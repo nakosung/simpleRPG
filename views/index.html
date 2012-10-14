@@ -59,32 +59,6 @@
             border-radius:10px;
         }
 
-            /* Variant : for top positioned triangle
-           ------------------------------------------ */
-
-        .triangle-right.top {
-            background:-webkit-gradient(linear, 0 0, 0 100%, from(#075698), to(#2e88c4));
-            background:-moz-linear-gradient(#075698, #2e88c4);
-            background:-o-linear-gradient(#075698, #2e88c4);
-            background:linear-gradient(#075698, #2e88c4);
-        }
-
-            /* Variant : for left positioned triangle
-           ------------------------------------------ */
-
-        .triangle-right.left {
-            margin-left:40px;
-            background:#075698;
-        }
-
-            /* Variant : for right positioned triangle
-           ------------------------------------------ */
-
-        .triangle-right.right {
-            margin-right:40px;
-            background:#075698;
-        }
-
             /* THE TRIANGLE
            ------------------------------------------------------------------------------------------------------------------------------- */
 
@@ -148,6 +122,8 @@
                                 {{v.data.chat}}
                             </p>
                         </div>
+
+                        {{Controller.pawn()}}
                     </div>
 
                 </div>
@@ -221,6 +197,25 @@
                 this.data = $.extend(this.data, data);
             }
 
+
+            function Controller(data) {
+                $scope.Controller = this;
+
+                Actor.call(this,data);
+            }
+            Controller.prototype = new Actor();
+            Controller.prototype.constructor = Controller;
+            Controller.prototype.pawn = function() {
+                return $scope.actors[this.data.pawn];
+            }
+            Controller.prototype.offset = function(a) {
+                var pawn = this.pawn();
+                return {
+                    x:a.data.x - pawn.data.x + 4.5,
+                    y:a.data.y - pawn.data.y + 4.5
+                }
+            }
+
             function Pawn(data) {
                 Actor.call(this,data);
                 this.x = 0;
@@ -238,16 +233,20 @@
                 var hindex = this.data.type * 3 + ($scope.tick)%3;
                 var index = dir_to_index[this.data.dir] || 0;
 
+                var c = $scope.Controller.offset(this);
+
                 return {
-                    left: this.data.x * 32 + "px",
-                    top: this.data.y * 32 + "px",
+                    left:c.x * 32 + "px",
+                    top:c.y * 32 + "px",
                     backgroundPosition: -hindex*32 + "px " + -index*32 +"px"
                 }
             }
             Pawn.prototype.chatStyle = function() {
+                var c = $scope.Controller.offset(this);
+
                 return {
-                    left: this.data.x * 32 - 64 + "px",
-                    top: this.data.y * 32 - 64 - 16 + "px",
+                    left:c.x * 32 - 64 + "px",
+                    top:c.y * 32 - 64 + "px",
                     display: this.data.chat != '' && this.data.chat ? 'block' : 'none'
                 }
             }
@@ -259,7 +258,6 @@
                 Actor.call(this,data);
 
                 $scope.map = this;
-                $scope.$apply();
 
                 var range = [];
                 for (var i=0; i<this.data.size; ++i)
@@ -322,7 +320,8 @@
             $scope.actors = {}
             $scope.classes = {
                 Pawn: Pawn,
-                Map: Map
+                Map: Map,
+                Controller: Controller
             }
 
             $scope.chat = ''
