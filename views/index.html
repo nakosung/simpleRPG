@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html ng-app>
 <head>
-    <title></title>
+    <meta charset="utf-8">
+    <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.1.1/css/bootstrap-combined.min.css" rel="stylesheet">
+    <title>Simple RPG</title>
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
     <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.0.2/angular.min.js"></script>
     <style type="text/css">
@@ -12,49 +14,334 @@
             padding:0;
             margin:0;
         }
-        table {
+        .view {
+            width:320px;
+            height:320px;
+            position:relative;
+        }
+        .pawn {
+            background-image: url('images/dA_RPG_characters_by_TheBigMan0706.png');
+            width:32px;
+            height:32px;
+            padding:0;
+            margin:0;
+            position:absolute;
+        }
+        .view > table {
             border-spacing:0;
             border-collapse:collapse;
+            position:absolute;
+            top:0px;
+            left:0px;
+        }
+
+
+            /* ============================================================================================================================
+          == BUBBLE WITH A RIGHT-ANGLED TRIANGLE
+          ** ============================================================================================================================ */
+
+            /* THE SPEECH BUBBLE
+           ------------------------------------------------------------------------------------------------------------------------------- */
+
+        .triangle-right {
+            position:relative;
+            padding:15px;
+            margin:1em 0 3em;
+            color:#fff;
+            background:#075698; /* default background for browsers without gradient support */
+            /* css3 */
+            background:-webkit-gradient(linear, 0 0, 0 100%, from(#2e88c4), to(#075698));
+            background:-moz-linear-gradient(#2e88c4, #075698);
+            background:-o-linear-gradient(#2e88c4, #075698);
+            background:linear-gradient(#2e88c4, #075698);
+            -webkit-border-radius:10px;
+            -moz-border-radius:10px;
+            border-radius:10px;
+        }
+
+            /* Variant : for top positioned triangle
+           ------------------------------------------ */
+
+        .triangle-right.top {
+            background:-webkit-gradient(linear, 0 0, 0 100%, from(#075698), to(#2e88c4));
+            background:-moz-linear-gradient(#075698, #2e88c4);
+            background:-o-linear-gradient(#075698, #2e88c4);
+            background:linear-gradient(#075698, #2e88c4);
+        }
+
+            /* Variant : for left positioned triangle
+           ------------------------------------------ */
+
+        .triangle-right.left {
+            margin-left:40px;
+            background:#075698;
+        }
+
+            /* Variant : for right positioned triangle
+           ------------------------------------------ */
+
+        .triangle-right.right {
+            margin-right:40px;
+            background:#075698;
+        }
+
+            /* THE TRIANGLE
+           ------------------------------------------------------------------------------------------------------------------------------- */
+
+        .triangle-right:after {
+            content:"";
+            position:absolute;
+            bottom:-20px; /* value = - border-top-width - border-bottom-width */
+            left:50px; /* controls horizontal position */
+            border-width:20px 0 0 20px; /* vary these values to change the angle of the vertex */
+            border-style:solid;
+            border-color:#075698 transparent;
+            /* reduce the damage in FF3.0 */
+            display:block;
+            width:0;
         }
     </style>
 </head>
 <body>
-    Express
-    <div ng-controller='ActionCtrl'>
-        <button ng-repeat='x in actions' ng-click='do(x)'>{{x}}</button>
+    <div class="navbar navbar-inverse navbar-fixed-top">
+        <div class="navbar-inner">
+            <div class="container">
+                <a class="brand" href="#">Simple RPG</a>
+                <form class="navbar-form pull-right">
+                    <input class="span2" type="text" placeholder="nickname" ng-model="nickname">
+                    <button type="submit" class="btn" ng-click="changeNickname()">Change!</button>
+                </form>
+            </div>
+        </div>
+    </div>
 
-        <h3>last result</h3>
-        <p>{{result}}</p>
+    <br>
+    <br>
 
-        <table>
-            <tr ng-repeat="r in map">
-                <td ng-repeat="c in r" class="map" ng-style="style(c)">
-                </td>
-            </tr>
-        </table>
+    <header class="jumbotron subhead" id="overview">
+        <div class="container">
+            <h1>Simple RPG</h1>
+            <p class="lead">Simple RPG client connected to node.js server</p>
+        </div>
+    </header>
+
+
+    <div class="container" ng-controller='ActionCtrl'>
+        <div class="span9">
+            <div class="row">
+                <div class="span6">
+                    <div>
+                        <button ng-repeat='x in actions' ng-click='do(x)'>{{x}}</button>
+
+                        <div class='view'>
+                            <table>
+                                <tr ng-repeat="r in map.rrange">
+                                    <td ng-repeat="c in map.crange" class="map" ng-style="map.style(r,c)">
+                                    </td>
+                                </tr>
+                            </table>
+
+
+                            <div ng-repeat="(k,v) in actors" class="pawn" ng-style="v.style()"></div>
+
+                            <p ng-class="v.chatClass()" ng-repeat="(k,v) in actors" ng-style="v.chatStyle()">
+                                {{v.data.chat}}
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="span3">
+                    <h2>chat messages</h2>
+                    <p ng-repeat="x in logs">
+                        <span ng-show="x.sender" style="color:blue">{{x.sender}} : </span>{{x.text}}
+                        <small class="muted">{{x.time | date}}</small>
+                    </p>
+                    <form>
+                        <input ng-model="chat" class="input-large" placeholder="type something...">
+                        <button class="btn btn-info"
+                                ng-click="send(chat)"
+                                ng-disable='sending'>
+                            send
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script type="text/javascript" src="/socket.io/socket.io.js"></script>
     <script type="text/javascript">
         var socket = io.connect('/');
 
-        function ActionCtrl($scope) {
-            $scope.style = function(c) {
-                var x = (c % 32) * 32;
-                var y = Math.floor(c / 32) * 32;
-                return {
-                    "background-position" : x + "px " + y + "px"
+        function ActionCtrl($scope,$document,$timeout) {
+            function Actor(data) {
+                this.data = data;
+            }
+
+            $timeout(function tick(){
+                $scope.tick++;
+                $timeout(tick,200)
+            },200)
+
+            $scope.tick = 0
+            $scope.stick = 'neutral'
+
+            $scope.keyBinding = {
+                37 : 'moveLeft',
+                38 : 'moveUp',
+                39 : 'moveRight',
+                40 : 'moveDown'
+            }
+
+            document.onkeydown = function(e) {
+                var b = $scope.keyBinding[e.keyCode];
+                if (b && $scope.stick != b) {
+                    $scope.stick = b;
+                    $scope.$apply();
+                    $scope.do('move',b);
+                }
+
+                if (e.keyCode >= 49 && e.keyCode < 59) {
+                    console.log('do')
+                    $scope.do('map', e.keyCode - 49);
                 }
             }
+
+            document.onkeyup = function(e) {
+                var b = $scope.keyBinding[e.keyCode];
+                if (b && $scope.stick == b) {
+                    $scope.stick = 'neutral';
+                    $scope.$apply();
+                    $scope.do('stop');
+                }
+            }
+
+            Actor.prototype.patch = function(data) {
+                this.data = $.extend(this.data, data);
+            }
+
+            function Pawn(data) {
+                Actor.call(this,data);
+                this.x = 0;
+            }
+            Pawn.prototype = new Actor();
+            Pawn.prototype.constructor = Pawn;
+            Pawn.prototype.style = function() {
+                var dir_to_index = {
+                    'moveDown' : 0,
+                    'moveLeft' : 1,
+                    'moveRight' : 2,
+                    'moveUp' : 3,
+                    'stop' : 0
+                }
+                var hindex = this.data.type * 3 + ($scope.tick)%3;
+                var index = dir_to_index[this.data.dir] || 0;
+
+                return {
+                    left: this.data.x * 32 + "px",
+                    top: this.data.y * 32 + "px",
+                    backgroundPosition: -hindex*32 + "px " + -index*32 +"px"
+                }
+            }
+            Pawn.prototype.chatStyle = function() {
+                return {
+                    left: this.data.x * 32 - 64 + "px",
+                    top: this.data.y * 32 - 64 - 16 + "px",
+                    display: this.data.chat != '' && this.data.chat ? 'block' : 'none'
+                }
+            }
+            Pawn.prototype.chatClass = function() {
+                return "triangle-right";
+            }
+
+            function Map(data) {
+                Actor.call(this,data);
+
+                $scope.map = this;
+                $scope.$apply();
+
+                var range = [];
+                for (var i=0; i<this.data.size; ++i)
+                    range.push(i);
+                this.rrange = range;
+                this.crange = range;
+            }
+            Map.prototype = new Actor();
+            Map.prototype.constructor = Map;
+            Map.prototype.style = function(r,c) {
+                if (r == undefined) return {
+                    display:'none'
+                }
+
+                var d = this.data.data;
+                var n = this.data.size;
+
+                function tile_to_style(c,dx,dy) {
+                    var i = c % 8;
+                    var j = Math.floor(c / 8) * 8;
+                    i *= 2;
+                    j *= 3;
+                    i += dx;
+                    j += dy;
+                    //console.log(i,j)
+                    var x = i * 32;
+                    var y = j * 32;
+                    return {
+                        "background-position" : -x + "px " + -y + "px"
+                    }
+                }
+
+                var x = r*n+c;
+                var center = d[x];
+                var left = (c > 0) && center == d[x-1];
+                var right = (c < n-1) && center == d[x+1];
+                var up = (r > 0) && center == d[x-n];
+                var down = (r < n-1) && center == d[x+n];
+                var dx = 0;
+                var dy = 0;
+
+                if (left && right && up && down) {
+                    dx = 1;
+                } else if (down) {
+                    dy = 1;
+                    if (left) {
+                        dx = 1;
+                    }
+                } else if (up) {
+                    dy = 2;
+                    if (left) {
+                        dx = 1;
+                    }
+                }
+
+                return tile_to_style(d[r*n+c],dx,dy)
+            }
+
+
+            $scope.actors = {}
+            $scope.classes = {
+                Pawn: Pawn,
+                Map: Map
+            }
+
+            $scope.chat = ''
+            $scope.send = function(msg) {
+                $scope.chat = ''
+                $scope.sending = true
+                socket.emit('chat',msg,function(){
+                    $scope.sending = false;
+                    $scope.$apply();
+                })
+            }
+
             socket.on('actions',function(r){
-                console.log('actions set',r)
                 $scope.actions = r;
                 $scope.$apply();
             })
 
-            $scope.do = function(action){
-                console.log(action);
-                socket.emit(action,{
+            $scope.do = function(action,data){
+                socket.emit('action',{action:action,data:data
 
                 },function(r){
                     $scope.result = r;
@@ -62,18 +349,26 @@
                 })
             }
 
-            socket.on('map',function(data){
-                var n = data.n;
-                var map = data.map;
-                $scope.map = []
-                var i=0;
-                for (var y=0; y<n; ++y) {
-                    var row = [];
-                    for (var x=0; x<n; ++x) {
-                        row.push(map[i++]);
+            socket.on('data',function(array){
+                array.forEach(function(data){
+
+                    var id = data.nid;
+                    var diff = data.data;
+                    var actor = $scope.actors[id];
+
+                    if (data.name) {
+                        actor = new $scope.classes[data.name](diff);
+                        if (actor) {
+                            $scope.actors[id] = actor;
+                        }
+                    } else if (data.deleted) {
+                        delete $scope.actors[id];
+                    } else {
+                        actor.patch(diff);
                     }
-                    $scope.map.push(row);
-                }
+                })
+
+                $scope.$apply();
             })
         }
 
