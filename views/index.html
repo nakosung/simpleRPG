@@ -74,6 +74,19 @@
             display:block;
             width:0;
         }
+
+        .pawn > span {
+            display : none;
+
+        }
+        .pawn:hover > span {
+            display: block;
+            font-size: 0.75em;
+            border-radius: 5px 5px; -moz-border-radius: 5px; -webkit-border-radius: 5px;
+            box-shadow: 5px 5px 5px rgba(0, 0, 0, 0.1); -webkit-box-shadow: 5px 5px rgba(0, 0, 0, 0.1); -moz-box-shadow: 5px 5px rgba(0, 0, 0, 0.1);
+            background: #FFFFAA; border: 1px solid #FFAD33;
+            position:absolute
+        }
     </style>
 </head>
 <body>
@@ -116,7 +129,11 @@
                             </table>
 
 
-                            <div ng-repeat="(k,v) in actors" class="pawn" ng-style="v.style()"></div>
+                            <div ng-repeat="(k,v) in actors" class="pawn" ng-style="v.style()">
+                                <span>
+                                    {{v.data}}
+                                </span>
+                            </div>
 
                             <p ng-class="v.chatClass()" ng-repeat="(k,v) in actors" ng-style="v.chatStyle()">
                                 {{v.data.chat}}
@@ -197,6 +214,11 @@
                 this.data = $.extend(this.data, data);
             }
 
+            Actor.prototype.style = function() {
+                return {
+                    display:'none'
+                }
+            }
 
             function Controller(data) {
                 $scope.Controller = this;
@@ -211,8 +233,8 @@
             Controller.prototype.offset = function(a) {
                 var pawn = this.pawn();
                 return {
-                    x:a.data.x - pawn.data.x + 4.5,
-                    y:a.data.y - pawn.data.y + 4.5
+                    x:a.x - pawn.data.x + 4.5,
+                    y:a.y - pawn.data.y + 4.5
                 }
             }
 
@@ -233,7 +255,16 @@
                 var hindex = this.data.type * 3 + ($scope.tick)%3;
                 var index = dir_to_index[this.data.dir] || 0;
 
-                var c = $scope.Controller.offset(this);
+                var c = $scope.Controller.offset(this.data);
+
+                if (
+                        c.x < 0 || c.x > 10 ||
+                        c.y < 0 || c.y > 10)
+                {
+                    return {
+                        display:'none'
+                    }
+                }
 
                 return {
                     left:c.x * 32 + "px",
@@ -242,7 +273,7 @@
                 }
             }
             Pawn.prototype.chatStyle = function() {
-                var c = $scope.Controller.offset(this);
+                var c = $scope.Controller.offset(this.data);
 
                 return {
                     left:c.x * 32 - 64 + "px",
@@ -289,6 +320,14 @@
                         "background-position" : -x + "px " + -y + "px"
                     }
                 }
+
+                var off = $scope.Controller.offset({x:0,y:0});
+
+                r -= off.y;
+                c -= off.x;
+
+                r = Math.floor(r);
+                c = Math.floor(c);
 
                 var x = r*n+c;
                 var center = d[x];
